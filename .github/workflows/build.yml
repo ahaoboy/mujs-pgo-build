@@ -50,6 +50,18 @@ jobs:
             unzip
             curl
             wget
+
+      - name: macos install llvm
+        if: "startsWith(matrix.os, 'macos')"
+        shell: "bash"
+        run: |
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
+          echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix llvm)/bin/llvm-profdata" >> $GITHUB_PATH
+          echo "LDFLAGS=-L/usr/local/opt/llvm/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I/usr/local/opt/llvm/include" >> $GITHUB_ENV
+
       - name: build-${{ matrix.target }}
         if: matrix.os != 'windows-latest'
         shell: "bash"

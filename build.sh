@@ -7,7 +7,7 @@ SRCDIR="$(pwd)/build-src"
 MUJS_RELEASE="$SRCDIR/mujs/build/release/mujs"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 2)}"
 TRAIN_SCRIPT="$(pwd)/v8v7.js"
-SAMPLES=8
+SAMPLES=4
 PGO_ENABLED=false
 MIMALLOC_ENABLED=false
 EXE_NAME="mujs"
@@ -227,7 +227,7 @@ if $IS_CLANG; then
 
   for ((i=1; i<=SAMPLES; i++)); do
       echo "pgo sample $i"
-      $OUTDIR_EXE "$TRAIN_SCRIPT"
+      LLVM_PROFILE_FILE="default-$i.profraw" $OUTDIR_EXE "$TRAIN_SCRIPT"
   done
 
   PROFRAW="$(find . -type f -name '*.profraw' -print -quit || true)"
@@ -237,7 +237,8 @@ if $IS_CLANG; then
     exit 0
   fi
   PROFDATA_FILE="$(pwd)/default.profdata"
-  llvm-profdata merge -o "$PROFDATA_FILE" "$PROFRAW"
+  llvm-profdata merge -output=default.profdata default-*.profraw
+
   build_mujs "clang-pgo-use" "-O3 -fprofile-instr-use=$PROFDATA_FILE -flto -march=native -funroll-loops" "$MIMALLOC_LIBS"
   echog "Clang PGO build complete: $OUTDIR_EXE"
   compress
