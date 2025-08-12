@@ -124,15 +124,29 @@ echod "Jobs: $JOBS"
 echod "PGO enabled: $PGO_ENABLED"
 echod "mimalloc enabled: $MIMALLOC_ENABLED"
 
-# check basics
-for cmd in git make awk sed; do run_or_die "$cmd"; done
-# compiler: prefer gcc, else clang
+# ---------- PGO path ----------
 CC="${CC:-$(command -v gcc || command -v clang || true)}"
-if [[ -z "$CC" ]]; then
-  echo "No C compiler (gcc or clang) found in PATH."
+
+# Check if CC is empty or not found
+if [[ -z "$CC" ]] || ! command -v "$CC" >/dev/null 2>&1; then
+  echo "Error: No C compiler (gcc or clang) found in PATH."
   exit 1
 fi
-echod "Using compiler: $CC"
+
+# Determine compiler type
+IS_GCC=false
+IS_CLANG=false
+if "$CC" --version 2>/dev/null | grep -qi "gcc"; then
+  IS_GCC=true
+elif "$CC" --version 2>/dev/null | grep -qi "clang"; then
+  IS_CLANG=true
+fi
+
+echo "Using compiler: $CC"
+echo "PGO path: compiler detection: GCC=$IS_GCC CLANG=$IS_CLANG"
+
+# check basics
+for cmd in git make awk sed; do run_or_die "$cmd"; done
 
 # prepare directories
 mkdir -p "$OUTDIR" "$SRCDIR"
@@ -195,13 +209,7 @@ if ! $PGO_ENABLED; then
   compress
 fi
 
-# ---------- PGO path ----------
-IS_GCC=false
-IS_CLANG=false
-if "$CC" --version 2>/dev/null | grep -qi gcc; then IS_GCC=true; fi
-if "$CC" --version 2>/dev/null | grep -qi clang; then IS_CLANG=true; fi
-echod "PGO path: compiler detection: GCC=$IS_GCC  CLANG=$IS_CLANG"
-
+# build
 if $IS_GCC; then
   build_mujs "pgo-gen" "-O2 -fprofile-generate=./pgo-data -march=native -g" ""
   echod "Running training workload..."
@@ -237,7 +245,8 @@ if $IS_CLANG; then
     exit 0
   fi
   PROFDATA_FILE="$(pwd)/default.profdata"
-  llvm-profdata merge -output=default.profdata default-*.profraw
+  echo ROFDATA_FILE $PROFDATA_FILE
+  llvm-profdata merge -output=$PROFDATA_FILE default-*.profraw
 
   build_mujs "clang-pgo-use" "-O3 -fprofile-instr-use=$PROFDATA_FILE -flto -march=native -funroll-loops" "$MIMALLOC_LIBS"
   echog "Clang PGO build complete: $OUTDIR_EXE"
