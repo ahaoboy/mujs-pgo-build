@@ -101,6 +101,17 @@ cp_release(){
   cp -r "$MUJS_RELEASE" "$OUTDIR_EXE"
 }
 
+compress(){
+  echog "Compress $OUTDIR"
+  ls -lh $OUTDIR
+
+  cd $WD
+  tar -czf ./$ZIP_NAME-${TARGET}.tar.gz -C $OUTDIR .
+  ls -l ./$ZIP_NAME-${TARGET}.tar.gz
+  exit
+}
+
+
 # detect environment
 UNAME="$(uname -s || echo unknown)"
 IS_MSYS=false
@@ -181,7 +192,7 @@ build_mujs() {
 if ! $PGO_ENABLED; then
   build_mujs "normal" "" "$MIMALLOC_LIBS"
   echog "Normal build finished. Binary: $OUTDIR/mujs"
-  exit 0
+  compress
 fi
 
 # ---------- PGO path ----------
@@ -202,6 +213,7 @@ if $IS_GCC; then
 
   build_mujs "pgo-use" "-O3 -march=native -fprofile-use=./pgo-data -flto -funroll-loops -fprofile-correction" "$MIMALLOC_LIBS"
   echog "PGO build complete: $OUTDIR_EXE"
+  compress
 fi
 
 if $IS_CLANG; then
@@ -228,15 +240,10 @@ if $IS_CLANG; then
   llvm-profdata merge -o "$PROFDATA_FILE" "$PROFRAW"
   build_mujs "clang-pgo-use" "-O3 -fprofile-instr-use=$PROFDATA_FILE -flto -march=native -funroll-loops" "$MIMALLOC_LIBS"
   echog "Clang PGO build complete: $OUTDIR_EXE"
+  compress
 fi
 
 echow "Unknown compiler; building with -O3"
 build_mujs "fallback-opt" "-O3 -march=native -flto -funroll-loops" "$MIMALLOC_LIBS"
 echog "Done."
 
-echog "Compress $OUTDIR"
-ls -lh $OUTDIR
-
-cd $WD
-tar -czf ./$ZIP_NAME-${TARGET}.tar.gz -C $OUTDIR .
-ls -l ./$ZIP_NAME-${TARGET}.tar.gz
