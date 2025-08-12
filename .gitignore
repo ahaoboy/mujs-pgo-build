@@ -1,0 +1,7 @@
+/build-src
+/dist
+/dist-pgo
+/dist-pgo-mimalloc
+/dist-mimalloc
+/*.tar.gz
+/*.log
